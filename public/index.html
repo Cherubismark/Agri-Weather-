@@ -9,12 +9,13 @@
 <body>
 
   <header>
-    <h1> Agri-Weather</h1>
+    <h1>Agri-Weather</h1>
     <p>Weather forecasts and farm analysis for African farmers</p>
   </header>
 
   <main>
 
+    <!-- Weather Section -->
     <section class="card">
       <h2>7-Day Weather Forecast</h2>
       <div class="input-row">
@@ -24,8 +25,9 @@
       <div id="weatherResult"></div>
     </section>
 
+    <!-- Tree Analysis Section -->
     <section class="card">
-      <h2> Farm Tree Analysis</h2>
+      <h2>Farm Tree Analysis</h2>
       <div class="input-row">
         <input type="text" id="county" placeholder="County (optional)" />
         <input type="number" id="landAcres" placeholder="Land size in acres (optional)" />
@@ -35,11 +37,62 @@
       <div id="treeResult"></div>
     </section>
 
+    <!-- Alert Settings Section -->
+    <section class="card">
+      <h2>Alert Settings</h2>
+      <p style="font-size:13px; color:#666; margin-bottom:16px;">
+        Configure which weather alerts you want to receive and for which location.
+      </p>
+      <div class="input-row">
+        <input type="text" id="webhookCity" placeholder="Enter city for alerts e.g. Nairobi" />
+        <button onclick="resolveWebhookCity()">Set Location</button>
+      </div>
+      <p id="webhookCityConfirm" style="font-size:12px; color:#2e7d32; margin-bottom:12px;"></p>
+      <div class="webhook-url-box">
+        <span style="font-size:12px; color:#666;">Your webhook URL:</span><br/>
+        <code id="webhookUrlDisplay">Loading...</code>
+      </div>
+      <div class="alert-toggles">
+        <label class="toggle-row">
+          <input type="checkbox" id="alert_heavy_rain" />
+          <span>Heavy Rain Warning</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="alert_storm" />
+          <span>Storm Alert</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="alert_extreme_heat" />
+          <span>Extreme Heat</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="alert_frost" />
+          <span>Frost Warning</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="alert_high_windspeed" />
+          <span>High Wind Speed</span>
+        </label>
+      </div>
+      <button onclick="saveWebhookSettings()" style="margin-top:16px;">Save & Register Alerts</button>
+      <p id="webhookSaveStatus" style="font-size:13px; margin-top:10px;"></p>
+    </section>
+
+    <!-- Weather Alerts Section -->
+    <section class="card">
+      <h2>Weather Alerts</h2>
+      <p style="font-size:13px; color:#666; margin-bottom:12px;">
+        Alerts appear here automatically when WeatherAI detects severe conditions.
+        <a href="/webhook/test" target="_blank" style="color:#2e7d32;">Click here to send a test alert →</a>
+      </p>
+      <div id="alertsList"><p style="color:#999;">No alerts yet.</p></div>
+    </section>
+
   </main>
 
   <script>
 
-    // Convert city name to coordinates 
+    // City coordinates 
     async function getCityCoords(city) {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`
@@ -52,7 +105,6 @@
     async function getWeather() {
       const city = document.getElementById('cityInput').value.trim();
       const resultDiv = document.getElementById('weatherResult');
-
       if (!city) return alert('Please enter a city name');
       resultDiv.innerHTML = '<p>Loading...</p>';
 
@@ -60,13 +112,9 @@
         const { lat, lon, name } = await getCityCoords(city);
         const res = await fetch(`/weather?lat=${lat}&lon=${lon}`);
         const data = await res.json();
-
         if (data.error) throw new Error(data.error);
 
-        // AI summary
         const aiSummary = data.ai_summary || data.summary || '';
-
-        // Daily forecast cards
         const days = data.daily || data.forecast || [];
         const dayCards = days.map(day => `
           <div class="day-card">
@@ -78,8 +126,8 @@
         `).join('');
 
         resultDiv.innerHTML = `
-          <h3> ${name}</h3>
-          ${aiSummary ? `<div class="ai-box"><strong>AI Summary:</strong> ${aiSummary}</div>` : ''}
+          <h3>📍 ${name}</h3>
+          ${aiSummary ? `<div class="ai-box">🤖 <strong>AI Summary:</strong> ${aiSummary}</div>` : ''}
           <div class="day-grid">${dayCards}</div>
         `;
       } catch (err) {
@@ -87,12 +135,12 @@
       }
     }
 
+    // Tree Analysis
     async function analyzeTrees() {
       const fileInput = document.getElementById('farmImage');
       const county = document.getElementById('county').value.trim();
       const landAcres = document.getElementById('landAcres').value.trim();
       const resultDiv = document.getElementById('treeResult');
-
       if (!fileInput.files.length) return alert('Please select a farm image');
       resultDiv.innerHTML = '<p>Analyzing image, please wait...</p>';
 
@@ -104,7 +152,6 @@
 
         const res = await fetch('/trees', { method: 'POST', body: formData });
         const data = await res.json();
-
         if (data.error) throw new Error(data.error);
 
         const observations = (data.observations || []).map(o => `<li>${o}</li>`).join('');
@@ -126,6 +173,125 @@
         resultDiv.innerHTML = `<p class="error">Error: ${err.message}</p>`;
       }
     }
+
+    // Alerts polling 
+    async function loadAlerts() {
+      try {
+        const res = await fetch('/alerts');
+        const alerts = await res.json();
+        const div = document.getElementById('alertsList');
+        if (!alerts.length) {
+          div.innerHTML = '<p style="color:#999;">No alerts yet.</p>';
+          return;
+        }
+        div.innerHTML = alerts.map(a => `
+          <div class="alert-card">
+            <strong>${a.type?.replace(/_/g, ' ').toUpperCase() || 'ALERT'}</strong>
+            <span class="alert-location">${a.location || 'Unknown location'}</span>
+            <p>${a.message || JSON.stringify(a)}</p>
+            <small>${a.receivedAt}</small>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    loadAlerts();
+    setInterval(loadAlerts, 5000);
+
+    // Webhook settings 
+    let webhookLat = null;
+    let webhookLon = null;
+
+    window.addEventListener('load', () => {
+      document.getElementById('webhookUrlDisplay').textContent =
+        window.location.origin + '/webhook';
+      loadWebhookSettings();
+    });
+
+    async function resolveWebhookCity() {
+      const city = document.getElementById('webhookCity').value.trim();
+      const confirm = document.getElementById('webhookCityConfirm');
+      if (!city) return alert('Please enter a city name');
+      try {
+        const { lat, lon, name } = await getCityCoords(city);
+        webhookLat = lat;
+        webhookLon = lon;
+        confirm.textContent = `Location set to: ${name}`;
+        confirm.style.color = '#2e7d32';
+      } catch (e) {
+        confirm.textContent = 'City not found. Try again.';
+        confirm.style.color = '#c62828';
+      }
+    }
+
+    async function saveWebhookSettings() {
+      const status = document.getElementById('webhookSaveStatus');
+      if (!webhookLat || !webhookLon) {
+        status.textContent = 'Please set a location first.';
+        status.style.color = '#c62828';
+        return;
+      }
+      const alerts = {
+        heavy_rain: document.getElementById('alert_heavy_rain').checked,
+        storm: document.getElementById('alert_storm').checked,
+        extreme_heat: document.getElementById('alert_extreme_heat').checked,
+        frost: document.getElementById('alert_frost').checked,
+        high_windspeed: document.getElementById('alert_high_windspeed').checked,
+      };
+      if (!Object.values(alerts).some(v => v)) {
+        status.textContent = 'Please enable at least one alert type.';
+        status.style.color = '#c62828';
+        return;
+      }
+      status.textContent = 'Saving...';
+      status.style.color = '#666';
+      try {
+        const res = await fetch('/webhook/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            city: document.getElementById('webhookCity').value.trim(),
+            lat: webhookLat,
+            lon: webhookLon,
+            alerts,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          status.textContent = data.warning
+            ? `${data.warning}`
+            : 'Alert settings saved and registered with WeatherAI!';
+          status.style.color = data.warning ? '#e65100' : '#2e7d32';
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        status.textContent = 'Failed to save settings.';
+        status.style.color = '#c62828';
+      }
+    }
+
+    async function loadWebhookSettings() {
+      try {
+        const res = await fetch('/webhook/settings');
+        const settings = await res.json();
+        if (settings.city) {
+          document.getElementById('webhookCity').value = settings.city;
+          webhookLat = settings.lat;
+          webhookLon = settings.lon;
+          document.getElementById('webhookCityConfirm').textContent =
+            `Location set to: ${settings.city}`;
+        }
+        if (settings.alerts) {
+          document.getElementById('alert_heavy_rain').checked = settings.alerts.heavy_rain;
+          document.getElementById('alert_storm').checked = settings.alerts.storm;
+          document.getElementById('alert_extreme_heat').checked = settings.alerts.extreme_heat;
+          document.getElementById('alert_frost').checked = settings.alerts.frost;
+          document.getElementById('alert_high_windspeed').checked = settings.alerts.high_windspeed;
+        }
+      } catch (e) {}
+    }
+
   </script>
 
 </body>
