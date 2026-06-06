@@ -1,19 +1,19 @@
-# 🌱 Agri-Weather
+# Agri-Weather
 
 A weather dashboard built for African farmers. Enter your city to get a 7-day weather forecast with an AI-generated summary, and upload a farm image for tree/canopy analysis.
 
-## 🚀 Live Demo
-[View on Railway](https://your-railway-url.up.railway.app)
+## Live Demo
+[View on Railway](agri-weather-production.up.railway.app)
 
-## 🛠 Tech Stack
+## Tech Stack
 - Node.js + Express (backend)
 - Plain HTML + CSS (frontend)
 - WeatherAI API (weather data + tree analysis)
 
-## ⚙️ Setup Instructions
+## Setup Instructions
 
 ### 1. Clone the repo
-git clone https://github.com/yourusername/agri-weather.git
+git clone https://github.com/Cherubismark/agri-weather.git
 cd agri-weather
 
 ### 2. Install dependencies
@@ -28,9 +28,9 @@ node server.js
 
 Then open http://localhost:3000 in your browser.
 
-## 📡 API Endpoints
+## API Endpoints
 - `GET /weather?lat=&lon=` — Returns 7-day forecast + AI summary
 - `POST /trees` — Accepts a farm image and returns canopy analysis
 
-## 🌍 Deployment
+## Deployment
 Deployed on Railway with environment variables set via the Railway dashboard.
