@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Agri-Weather</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1> Agri-Weather</h1>
+    <p>Weather forecasts and farm analysis for African farmers</p>
+  </header>
+
+  <main>
+
+    <section class="card">
+      <h2>7-Day Weather Forecast</h2>
+      <div class="input-row">
+        <input type="text" id="cityInput" placeholder="Enter city e.g. Nairobi" />
+        <button onclick="getWeather()">Get Forecast</button>
+      </div>
+      <div id="weatherResult"></div>
+    </section>
+
+    <section class="card">
+      <h2> Farm Tree Analysis</h2>
+      <div class="input-row">
+        <input type="text" id="county" placeholder="County (optional)" />
+        <input type="number" id="landAcres" placeholder="Land size in acres (optional)" />
+      </div>
+      <input type="file" id="farmImage" accept="image/*" />
+      <button onclick="analyzeTrees()">Analyze Farm Image</button>
+      <div id="treeResult"></div>
+    </section>
+
+  </main>
+
+  <script>
+
+    // Convert city name to coordinates 
+    async function getCityCoords(city) {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`
+      );
+      const data = await res.json();
+      if (!data.length) throw new Error('City not found');
+      return { lat: data[0].lat, lon: data[0].lon, name: data[0].display_name };
+    }
+
+    async function getWeather() {
+      const city = document.getElementById('cityInput').value.trim();
+      const resultDiv = document.getElementById('weatherResult');
+
+      if (!city) return alert('Please enter a city name');
+      resultDiv.innerHTML = '<p>Loading...</p>';
+
+      try {
+        const { lat, lon, name } = await getCityCoords(city);
+        const res = await fetch(`/weather?lat=${lat}&lon=${lon}`);
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        // AI summary
+        const aiSummary = data.ai_summary || data.summary || '';
+
+        // Daily forecast cards
+        const days = data.daily || data.forecast || [];
+        const dayCards = days.map(day => `
+          <div class="day-card">
+            <strong>${day.date || day.day}</strong>
+            <p>${day.condition || day.description || ''}</p>
+            <p>${day.temp_max ?? day.max}° / ${day.temp_min ?? day.min}°</p>
+            <p>${day.precipitation ?? day.rain ?? 0}mm</p>
+          </div>
+        `).join('');
+
+        resultDiv.innerHTML = `
+          <h3> ${name}</h3>
+          ${aiSummary ? `<div class="ai-box"><strong>AI Summary:</strong> ${aiSummary}</div>` : ''}
+          <div class="day-grid">${dayCards}</div>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+      }
+    }
+
+    async function analyzeTrees() {
+      const fileInput = document.getElementById('farmImage');
+      const county = document.getElementById('county').value.trim();
+      const landAcres = document.getElementById('landAcres').value.trim();
+      const resultDiv = document.getElementById('treeResult');
+
+      if (!fileInput.files.length) return alert('Please select a farm image');
+      resultDiv.innerHTML = '<p>Analyzing image, please wait...</p>';
+
+      try {
+        const formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+        if (county) formData.append('county', county);
+        if (landAcres) formData.append('landAcres', landAcres);
+
+        const res = await fetch('/trees', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        const observations = (data.observations || []).map(o => `<li>${o}</li>`).join('');
+        const recommendations = (data.recommendations || []).map(r => `<li>${r}</li>`).join('');
+
+        resultDiv.innerHTML = `
+          <div class="tree-results">
+            <p><strong>Total Trees:</strong> ${data.total_tree_count}</p>
+            <p><strong>Healthy:</strong> ${data.tree_health?.healthy ?? 'N/A'}</p>
+            <p><strong>Needs Care:</strong> ${data.tree_health?.needs_care ?? 'N/A'}</p>
+            <p><strong>Needs Replacement:</strong> ${data.tree_health?.needs_replacement ?? 'N/A'}</p>
+            <p><strong>Canopy Coverage:</strong> ${data.canopy_coverage_pct}%</p>
+            ${observations ? `<h4>Observations</h4><ul>${observations}</ul>` : ''}
+            ${recommendations ? `<h4>Recommendations</h4><ul>${recommendations}</ul>` : ''}
+            ${data.overlay_image_url ? `<img src="${data.overlay_image_url}" alt="Annotated farm" />` : ''}
+          </div>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+      }
+    }
+  </script>
+
+</body>
+</html>
