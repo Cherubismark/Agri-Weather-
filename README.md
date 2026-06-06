@@ -3,7 +3,7 @@
 A weather dashboard built for African farmers. Enter your city to get a 7-day weather forecast with an AI-generated summary, and upload a farm image for tree/canopy analysis.
 
 ## Live Demo
-[View on Railway](agri-weather-production.up.railway.app)
+[View on Railway](agri-weather.up.railway.app)
 
 ## Tech Stack
 - Node.js + Express (backend)
