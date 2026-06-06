@@ -9,7 +9,7 @@ A weather dashboard built for African farmers. Enter your city to get a 7-day we
 - Configurable alert types (heavy rain, storm, extreme heat, frost, high wind)
 
 ## Live Demo
-[View on Railway](agri-weather.up.railway.app)
+[View on Railway](https://agri-weather.up.railway.app/)
 
 ## Tech Stack
 - Node.js + Express (backend)
